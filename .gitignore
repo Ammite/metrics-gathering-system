@@ -1,0 +1,14 @@
+# python files
+venv
+.pytest_cache
+__pycache__
+
+# config file with keys
+config.py
+.env
+
+# test files
+*test*.py
+
+# database files
+database/*

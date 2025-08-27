@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метрики</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .uid {
+            font-family: 'Courier New', monospace;
+            background-color: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .source {
+            color: #6c757d;
+        }
+        .timestamp {
+            color: #868e96;
+            font-size: 0.9em;
+        }
+        .empty {
+            text-align: center;
+            color: #6c757d;
+            padding: 40px;
+            font-style: italic;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Метрики системы</h1>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">{{ metrics|length }}</div>
+                <div class="stat-label">Всего метрик</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">{{ metrics|map(attribute='source')|unique|list|length }}</div>
+                <div class="stat-label">Источников</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">{{ metrics|map(attribute='uid')|unique|list|length }}</div>
+                <div class="stat-label">Уникальных UID</div>
+            </div>
+        </div>
+
+        {% if metrics %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>UID</th>
+                    <th>Источник</th>
+                    <th>Время создания</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in metrics %}
+                <tr>
+                    <td><strong>{{ metric.id }}</strong></td>
+                    <td><span class="uid">{{ metric.uid }}</span></td>
+                    <td><span class="source">{{ metric.source }}</span></td>
+                    <td><span class="timestamp">{{ metric.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">
+            Пока нет метрик в системе
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
