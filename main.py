@@ -93,12 +93,28 @@ def read_metrics_page(
     request: Request, 
     db: Session = Depends(get_db),
     source_filter: Optional[str] = Query(None),
-    date_from: Optional[date] = Query(None),
-    date_to: Optional[date] = Query(None)
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None)
 ):
     # Проверяем авторизацию
     if not check_auth(request):
         return RedirectResponse(url="/login", status_code=302)
+    
+    # Парсим даты
+    parsed_date_from = None
+    parsed_date_to = None
+    
+    if date_from and date_from.strip():
+        try:
+            parsed_date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+        except ValueError:
+            parsed_date_from = None
+    
+    if date_to and date_to.strip():
+        try:
+            parsed_date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+        except ValueError:
+            parsed_date_to = None
     
     query = db.query(MetricDB)
     
@@ -106,13 +122,13 @@ def read_metrics_page(
     if source_filter:
         query = query.filter(MetricDB.source == source_filter)
     
-    if date_from:
-        query = query.filter(MetricDB.created_at >= date_from)
+    if parsed_date_from:
+        query = query.filter(MetricDB.created_at >= parsed_date_from)
     
-    if date_to:
+    if parsed_date_to:
         # Добавляем один день, чтобы включить весь день date_to
         from datetime import timedelta
-        query = query.filter(MetricDB.created_at < date_to + timedelta(days=1))
+        query = query.filter(MetricDB.created_at < parsed_date_to + timedelta(days=1))
     
     metrics = query.order_by(MetricDB.created_at.desc()).all()
     
@@ -126,12 +142,12 @@ def read_metrics_page(
     if source_filter:
         event_stats = event_stats.filter(MetricDB.source == source_filter)
     
-    if date_from:
-        event_stats = event_stats.filter(MetricDB.created_at >= date_from)
+    if parsed_date_from:
+        event_stats = event_stats.filter(MetricDB.created_at >= parsed_date_from)
     
-    if date_to:
+    if parsed_date_to:
         from datetime import timedelta
-        event_stats = event_stats.filter(MetricDB.created_at < date_to + timedelta(days=1))
+        event_stats = event_stats.filter(MetricDB.created_at < parsed_date_to + timedelta(days=1))
     
     event_stats = event_stats.group_by(MetricDB.uid).order_by(func.count(MetricDB.uid).desc()).all()
     
@@ -145,12 +161,12 @@ def read_metrics_page(
     if source_filter:
         source_stats = source_stats.filter(MetricDB.source == source_filter)
     
-    if date_from:
-        source_stats = source_stats.filter(MetricDB.created_at >= date_from)
+    if parsed_date_from:
+        source_stats = source_stats.filter(MetricDB.created_at >= parsed_date_from)
     
-    if date_to:
+    if parsed_date_to:
         from datetime import timedelta
-        source_stats = source_stats.filter(MetricDB.created_at < date_to + timedelta(days=1))
+        source_stats = source_stats.filter(MetricDB.created_at < parsed_date_to + timedelta(days=1))
     
     source_stats = source_stats.group_by(MetricDB.source).order_by(func.count(MetricDB.source).desc()).all()
     
@@ -159,21 +175,24 @@ def read_metrics_page(
     all_sources = [s[0] for s in all_sources]
     
     # Создаем воронку конверсии
-    funnel_data = calculate_conversion_funnel(db, source_filter, date_from, date_to)
+    funnel_data = calculate_conversion_funnel(db, source_filter, parsed_date_from, parsed_date_to)
+    
+    # Анализ кнопочных действий
+    button_stats = calculate_button_stats(db, source_filter, parsed_date_from, parsed_date_to)
     
     return templates.TemplateResponse("metrics.html", {
         "request": request, 
-        "metrics": metrics,
         "event_stats": event_stats,
         "source_stats": source_stats,
         "all_sources": all_sources,
         "current_source": source_filter,
-        "date_from": date_from,
-        "date_to": date_to,
+        "date_from": parsed_date_from,
+        "date_to": parsed_date_to,
         "total_metrics": len(metrics),
         "unique_events": len(event_stats),
         "unique_sources": len(source_stats),
-        "funnel_data": funnel_data
+        "funnel_data": funnel_data,
+        "button_stats": button_stats
     })
 
 def calculate_conversion_funnel(db: Session, source_filter: Optional[str], date_from: Optional[date], date_to: Optional[date]):
@@ -237,6 +256,79 @@ def calculate_conversion_funnel(db: Session, source_filter: Optional[str], date_
                 step["width"] = 0
     
     return funnel_results
+
+def calculate_button_stats(db: Session, source_filter: Optional[str], date_from: Optional[date], date_to: Optional[date]):
+    """Рассчитывает статистику по дополнительным кнопочным действиям"""
+    
+    # Определяем кнопочные действия из README
+    button_actions = [
+        {"key": "BUTTON_CONS_SHPORA", "name": "Консультация по шпоре", "icon": "🦴", "color": "#8b5cf6"},
+        {"key": "BUTTON_CONS_SUSTAV", "name": "Консультация по суставам", "icon": "🦵", "color": "#06b6d4"},
+        {"key": "BUTTON_PODOBRAT_AP", "name": "Подобрать аппарат для лечения", "icon": "⚡", "color": "#10b981"},
+        {"key": "BUTTON_BUY_APPARAT", "name": "Хочу купить аппарат", "icon": "🛒", "color": "#f59e0b"},
+        {"key": "BUTTON_Q_TO_DOCTOR", "name": "Задать вопрос врачу", "icon": "👨‍⚕️", "color": "#ef4444"}
+    ]
+    
+    button_results = []
+    total_button_clicks = 0
+    
+    # Сначала считаем общее количество нажатий на все кнопки
+    for action in button_actions:
+        query = db.query(func.count(MetricDB.id)).filter(MetricDB.uid == action["key"])
+        
+        # Применяем фильтры
+        if source_filter:
+            query = query.filter(MetricDB.source == source_filter)
+        
+        if date_from:
+            query = query.filter(MetricDB.created_at >= date_from)
+        
+        if date_to:
+            from datetime import timedelta
+            query = query.filter(MetricDB.created_at < date_to + timedelta(days=1))
+        
+        count = query.scalar() or 0
+        total_button_clicks += count
+    
+    # Теперь рассчитываем проценты для каждой кнопки
+    for action in button_actions:
+        query = db.query(func.count(MetricDB.id)).filter(MetricDB.uid == action["key"])
+        
+        # Применяем фильтры
+        if source_filter:
+            query = query.filter(MetricDB.source == source_filter)
+        
+        if date_from:
+            query = query.filter(MetricDB.created_at >= date_from)
+        
+        if date_to:
+            from datetime import timedelta
+            query = query.filter(MetricDB.created_at < date_to + timedelta(days=1))
+        
+        count = query.scalar() or 0
+        
+        # Рассчитываем процент от общего количества кнопочных действий
+        if total_button_clicks > 0:
+            percentage = (count / total_button_clicks) * 100
+        else:
+            percentage = 0.0
+        
+        button_results.append({
+            "key": action["key"],
+            "name": action["name"],
+            "icon": action["icon"],
+            "color": action["color"],
+            "count": count,
+            "percentage": round(percentage, 1)
+        })
+    
+    # Сортируем по количеству нажатий (по убыванию)
+    button_results.sort(key=lambda x: x["count"], reverse=True)
+    
+    return {
+        "buttons": button_results,
+        "total_clicks": total_button_clicks
+    }
 
 @app.post("/metrics")
 def create_metric(metric: MetricCreate, db: Session = Depends(get_db)):

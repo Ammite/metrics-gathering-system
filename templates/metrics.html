@@ -629,6 +629,78 @@
             </div>
             {% endif %}
 
+            <!-- Кнопочные действия -->
+            {% if button_stats and button_stats.total_clicks > 0 %}
+            <div class="funnel-section">
+                <div class="section-title">🔘 Анализ кнопочных действий</div>
+                <div style="text-align: center; margin-bottom: 20px; color: #6b7280;">
+                    Всего нажатий: <strong style="color: #1f2937;">{{ button_stats.total_clicks }}</strong>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    {% for button in button_stats.buttons %}
+                    {% if button.count > 0 %}
+                    <div style="
+                        background: white; 
+                        border-radius: 12px; 
+                        padding: 20px; 
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                        border-left: 4px solid {{ button.color }};
+                        transition: transform 0.2s ease;
+                    " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <div style="
+                                font-size: 2em; 
+                                width: 60px; 
+                                height: 60px; 
+                                border-radius: 50%; 
+                                background: {{ button.color }}20; 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                            ">{{ button.icon }}</div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 1.1em; font-weight: 700; color: #1f2937; margin-bottom: 5px;">
+                                    {{ button.name }}
+                                </div>
+                                <div style="font-size: 0.9em; color: #6b7280; font-family: 'Courier New', monospace;">
+                                    {{ button.key }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 2em; font-weight: bold; color: {{ button.color }};">
+                                    {{ button.count }}
+                                </div>
+                                <div style="font-size: 0.9em; color: #6b7280;">нажатий</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.8em; font-weight: bold; color: #1f2937;">
+                                    {{ button.percentage }}%
+                                </div>
+                                <div style="font-size: 0.9em; color: #6b7280;">от всех</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Прогресс-бар -->
+                        <div style="margin-top: 15px; background: #f3f4f6; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="
+                                height: 100%; 
+                                background: {{ button.color }}; 
+                                width: {{ button.percentage }}%; 
+                                transition: width 0.8s ease-in-out;
+                                border-radius: 4px;
+                            "></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Статистика по источникам -->
             {% if source_stats %}
             <div class="sources-section">
@@ -644,43 +716,6 @@
             </div>
             {% endif %}
 
-            <!-- Детальные данные -->
-            {% if metrics %}
-            <div class="raw-data">
-                <h3>📋 Детальные данные</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Событие</th>
-                            <th>Источник</th>
-                            <th>Время создания</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for metric in metrics[:100] %}
-                        <tr>
-                            <td><strong>{{ metric.id }}</strong></td>
-                            <td><span class="uid">{{ metric.uid }}</span></td>
-                            <td><span class="source">{{ metric.source }}</span></td>
-                            <td><span class="timestamp">{{ metric.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
-                        </tr>
-                        {% endfor %}
-                        {% if metrics|length > 100 %}
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: #6b7280; font-style: italic;">
-                                ... и ещё {{ metrics|length - 100 }} записей
-                            </td>
-                        </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="empty">
-                📭 Пока нет событий в системе
-            </div>
-            {% endif %}
         </div>
     </div>
 
