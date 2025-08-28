@@ -1,14 +1,30 @@
-from fastapi import FastAPI, HTTPException, Depends, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Depends, Request, Query, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, func
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from datetime import datetime, date
 from typing import Optional, List, Dict
 import os
+from config import settings
 
 app = FastAPI()
+
+# Добавляем CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Разрешаем все домены для разработки
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# Добавляем middleware для сессий
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+
 templates = Jinja2Templates(directory="templates")
 
 os.makedirs("database", exist_ok=True)
@@ -38,6 +54,40 @@ def get_db():
     finally:
         db.close()
 
+def check_auth(request: Request):
+    """Проверяет авторизацию пользователя"""
+    return request.session.get("authenticated") == True
+
+def require_auth(request: Request):
+    """Требует авторизации для доступа"""
+    if not check_auth(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    """Страница входа"""
+    if check_auth(request):
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    """Обработка авторизации"""
+    if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
+        request.session["authenticated"] = True
+        return RedirectResponse(url="/", status_code=302)
+    else:
+        return templates.TemplateResponse("login.html", {
+            "request": request, 
+            "error": "Неверный логин или пароль"
+        })
+
+@app.get("/logout")
+def logout(request: Request):
+    """Выход из системы"""
+    request.session.pop("authenticated", None)
+    return RedirectResponse(url="/login", status_code=302)
+
 @app.get("/", response_class=HTMLResponse)
 def read_metrics_page(
     request: Request, 
@@ -46,6 +96,10 @@ def read_metrics_page(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None)
 ):
+    # Проверяем авторизацию
+    if not check_auth(request):
+        return RedirectResponse(url="/login", status_code=302)
+    
     query = db.query(MetricDB)
     
     # Применяем фильтры
@@ -204,4 +258,4 @@ def delete_metric(metric_id: int, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8004)
