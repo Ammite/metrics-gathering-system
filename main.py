@@ -199,11 +199,10 @@ def calculate_conversion_funnel(db: Session, source_filter: Optional[str], date_
     """Рассчитывает воронку конверсии для основных событий"""
     
     # Определяем этапы воронки в порядке важности согласно README
+    # MENU_WHATSAPP и MENU_TELEGRAM исключены - это просто интерфейсные переходы к чатботу
     funnel_steps = [
         {"key": "WEBSITE_OPENED", "name": "Зашел на сайт", "icon": "🌐", "color": "#10b981"},
         {"key": "MENU_OPENED", "name": "Открыл меню", "icon": "📋", "color": "#3b82f6"},
-        {"key": "MENU_WHATSAPP", "name": "Нажал на WhatsApp", "icon": "📱", "color": "#25d366"},
-        {"key": "MENU_TELEGRAM", "name": "Нажал на Telegram", "icon": "✈️", "color": "#0088cc"},
         {"key": "CHATBOT_OPENED", "name": "Нажал открыть чат", "icon": "💬", "color": "#667eea"},
         {"key": "CHATBOT_USER_MESSAGE", "name": "Написал в чат", "icon": "✍️", "color": "#f59e0b"},
         {"key": "CHATBOT_GET_PHONE", "name": "Получили номер телефона", "icon": "📞", "color": "#dc2626"}
